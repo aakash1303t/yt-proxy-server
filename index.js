@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import fetch from "node-fetch";
-import { parseStringPromise } from "xml2js"; // Import XML parser
+import { parseStringPromise } from "xml2js";
 
 const app = express();
 app.use(cors());
@@ -17,9 +17,30 @@ app.get("/proxy", async (req, res) => {
         if (!response.ok) throw new Error("Failed to fetch data");
 
         const xml = await response.text();
-        const json = await parseStringPromise(xml); // Convert XML to JSON
+        const json = await parseStringPromise(xml);
 
-        res.json(json); // Return JSON response
+        // Extract channel info
+        const channelTitle = json.feed.title[0];
+        const channelUrl = json.feed.link.find(link => link.$.rel === "alternate").$.href;
+
+        // Extract latest videos
+        const videos = json.feed.entry.map(entry => ({
+            videoId: entry["yt:videoId"][0],
+            title: entry.title[0],
+            link: entry.link[0].$.href,
+            thumbnail: entry["media:group"][0]["media:thumbnail"][0].$.url,
+            published: entry.published[0],
+            description: entry["media:group"][0]["media:description"][0]
+        }));
+
+        res.json({
+            channel: {
+                title: channelTitle,
+                url: channelUrl
+            },
+            videos
+        });
+
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
